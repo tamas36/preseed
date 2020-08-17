@@ -1,0 +1,8 @@
+/var/log/apt/*.log {
+	rotate 12
+	monthly
+	compress
+	dateext
+	missingok
+	notifempty
+}

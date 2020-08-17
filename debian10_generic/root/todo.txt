@@ -1,0 +1,6 @@
+# To-Do's:
+# ---
+[] Review /etc/csf/
+[]   set TESTING to "0"
+[] Review /etc/aliases
+[] Review /etc/fstab

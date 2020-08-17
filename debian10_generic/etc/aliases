@@ -1,0 +1,8 @@
+# See man 5 aliases for format
+
+# administrators
+#user1: example@domain.com
+
+# users
+postmaster: root
+#root: user1

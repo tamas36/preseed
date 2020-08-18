@@ -1,13 +1,11 @@
 #!/bin/bash
 #
-# late_command.sh v0.1
+# late_command.sh v0.2-dev
 #
 # {SHORT_DESCRIPTION}
 #
 # Copyright (c) 2020 Tamás Tóth ({CONTACT_INFO}).
 # Permission to copy and modify is granted under the MIT license.
-#
-# Last revised: 2020/08/12
 #
 
 ## Configuration ##
@@ -42,7 +40,7 @@ perm_authorized_keys_file=600
 
 ## Global variables. ##
 
-dependencies=(grep unzip tar wget)
+dependencies=(grep unzip wget)
 installed_dependencies=()
 fstab_entry_added=false
 file_folder_removed=false
@@ -180,36 +178,7 @@ fi
 
 printf "\n"
 
-# Step 5: Installing CSF & LFD
-
-printf "Installing CSF firewall and LFD daemon:\n"
-
-if ( ! command -v "fail2ban-client" > /dev/null 2>&1 )
-then
-	printf " Removing fail2ban... "
-	apt autoremove --purge -y fail2ban > /dev/null 2>&1; print_status
-fi
-
-if ( ! command -v "csf" > /dev/null 2>&1 )
-then
-	printf " Installing libwww-perl... "
-	apt install -y libwww-perl > /dev/null 2>&1; print_status
-
-	printf " Downloading csf.tgz into '/usr/src'... "
-	wget -q --no-check-certificate https://download.configserver.com/csf.tgz -O /usr/src/csf.tgz; print_status
-
-	printf " Extracting csf.tgz... "
-	tar xzf /usr/src/csf.tgz -C /usr/src; print_status
-
-	printf " Installing CSF and LFD... "
-	cd /usr/src/csf && sh install.sh > /dev/null 2>&1; print_status
-else
-	printf " [Already installed]\n"
-fi
-
-printf "\n"
-
-# Step 6: Downloading and extracting ZIP file.
+# Step 5: Downloading and extracting ZIP file.
 
 printf "Downloading ZIP file '$zip_filename'... "
 wget -q --no-check-certificate $wget_url -O $root_dir/$zip_filename; print_status
@@ -218,7 +187,7 @@ printf "Extracting ZIP file to '$unzip_to'... "
 unzip -qq -o $root_dir/$zip_filename -d $unzip_to > /dev/null 2>&1; print_status
 printf "\n"
 
-# Step 7: Copying content of '/admin_skel/' to administrators' home directories
+# Step 6: Copying content of '/admin_skel/' to administrators' home directories
 #         and fixing ownerships.
 
 for user in ${admin_users[*]}
@@ -231,7 +200,7 @@ done
 
 printf "\n"
 
-# Step 8: Applying pre-defined permissions on find_folders[].
+# Step 7: Applying pre-defined permissions on find_folders[].
 
 printf "Applying pre-defined permissions on selected folders:\n"
 
@@ -264,7 +233,7 @@ done
 
 printf "\n"
 
-# Step 9: Finishing; removing unnecessary packages, files and directories; printing out status messages.
+# Step 8: Finishing; removing unnecessary packages, files and directories; printing out status messages.
 
 if [ ! ${#installed_dependencies[@]} -eq 0 ]
 then

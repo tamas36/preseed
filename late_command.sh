@@ -16,8 +16,19 @@
 root_dir="/root/.late_command"
 logfile_name="late_command.log"
 
-wget_url="https://example.com/debian10_generic.zip"
-unzip_to="/"
+# ZIP file that contains the configurations to be applied on the system.
+wget_url="https://github.com/tamas36/preseed/archive/development.zip"
+
+# ^^ Note: If you are planning to make custom ZIP file, you have to follow
+#          the following directory structure, otherwise the script won't work:
+#          example.zip: /configurations/{target_os}/{target_config}/{etc,home,...}
+
+# Configurations that will be applied on the system.
+# Settings are relative to 'configurations/' folder inside the ZIP file.
+target_os="debian10"
+target_configs=(
+	"generic"
+)
 
 swap_size="1G"
 
@@ -32,18 +43,18 @@ perm_ssh_folder=700
 perm_files=640
 perm_authorized_keys_file=600
 
-# Note: You should never change 'perm_ssh_folder=700' and 'perm_authorized_keys_file=600',
-#       because it may cause security risk on your system. However the option is there,
-#       if you have to change it for some reason.
+# ^^ Note: You should never change 'perm_ssh_folder=700' and 'perm_authorized_keys_file=600',
+#          because it may cause security risk on your system. However the option is there,
+#          if you have to change it for some reason.
 
 # // End of script configuration here.
 
-## Global variables. ##
+
+## Global variables ##
 
 dependencies=(grep unzip wget)
 installed_dependencies=()
 fstab_entry_added=false
-file_folder_removed=false
 everything_done=true
 
 # Shell colors.
@@ -54,7 +65,9 @@ RESET='\033[0m'
 timestamp=$(date "+%Y-%m-%d %H:%M:%S")
 script_filename=$(basename $0)
 zip_filename=$(basename $wget_url)
+unzip_foldername=${zip_filename%.*}
 admin_users=$(getent group sudo | cut -d: -f4)
+
 
 ## Functions ##
 
@@ -69,6 +82,7 @@ function print_status()
 	fi
 }
 
+
 ## Main Script ##
 
 export -f print_status
@@ -82,12 +96,14 @@ export perm_authorized_keys_file
 
 printf "$timestamp: Executing '$script_filename'.\n"
 
-# Step 1: Creating root directory for the script.
+# Step 1: Creating directory structure for the script.
 
 if [[ ! -e $root_dir ]]
 then
 	printf "Creating '$root_dir' directory... "
 	mkdir $root_dir; print_status
+	printf "Creating '$root_dir/download/' directory... "
+	mkdir $root_dir/download; print_status
 else
 	printf "Note: '$root_dir' directory is already exists, skipping.\n"
 fi
@@ -126,7 +142,7 @@ printf "\n"
 
 printf "Creating swapfile:\n"
 
-if [[ ! -f "/var/swap" ]]
+if ( ! grep -q 'swap' /etc/fstab )
 then
 	printf " Pre-allocating $swap_size disk space for the swapfile... "
 	fallocate -l $swap_size /var/swap > /dev/null 2>&1; print_status
@@ -139,21 +155,21 @@ then
 
 	printf " Enabling the swapfile... "
 	swapon /var/swap > /dev/null 2>&1; print_status
+	
+	if ( ! grep -q '/var/swap' /etc/fstab )
+	then
+		printf " Adding swapfile entry to '/etc/fstab'... "
+		echo '/var/swap  none  swap  sw  0 0' >> /etc/fstab; print_status
+	else
+		printf " Swapfile entry is already added to '/etc/fstab', skipping.\n"
+	fi
 else
-	printf " Swapfile '/var/swap' is already exists, skipping.\n"
-fi
-
-if ( ! grep -q '/var/swap' /etc/fstab )
-then
-	printf " Adding swapfile entry to '/etc/fstab'... "
-	echo '/var/swap none swap sw 0 0' >> /etc/fstab; print_status
-else
-	printf " Swapfile entry is already added to '/etc/fstab', skipping.\n"
+	printf " Swap is already exists, skipping.\n"
 fi
 
 printf "\n"
 
-# Step 4: Adding custom entries to '/etc/fstab'
+# Step 4: Adding custom entries to '/etc/fstab'.
 
 printf "Adding custom entries to '/etc/fstab':\n"
 
@@ -181,10 +197,26 @@ printf "\n"
 # Step 5: Downloading and extracting ZIP file.
 
 printf "Downloading ZIP file '$zip_filename'... "
-wget -q --no-check-certificate $wget_url -O $root_dir/$zip_filename; print_status
+wget -q --no-check-certificate $wget_url -O $root_dir/download/$zip_filename; print_status
 
-printf "Extracting ZIP file to '$unzip_to'... "
-unzip -qq -o $root_dir/$zip_filename -d $unzip_to > /dev/null 2>&1; print_status
+printf "Extracting ZIP file to '$root_dir/download/$unzip_foldername/'... "
+unzip -qq -o $root_dir/download/$zip_filename -d $root_dir/download/$unzip_foldername/ > /dev/null 2>&1; print_status
+
+printf "\n"
+
+printf "Copying target configurations to the system:\n"
+
+if [ ${#target_configs[@]} -gt 0 ]
+then
+	for target_config in ${target_configs[*]}
+	do
+		printf " Copying '$target_os/$target_config/'... "
+		cp -R $root_dir/download/$unzip_foldername/configurations/$target_os/$target_config/. / > /dev/null 2>&1; print_status
+	done
+else
+	printf " [Nothing to copy]\n"
+fi
+
 printf "\n"
 
 # Step 6: Copying content of '/admin_skel/' to administrators' home directories
@@ -233,36 +265,18 @@ done
 
 printf "\n"
 
-# Step 8: Finishing; removing unnecessary packages, files and directories; printing out status messages.
+# Step 8: Finishing. Removing unnecessary packages; printing out status messages.
+
+printf "Removing unnecessary packages:\n"
 
 if [ ! ${#installed_dependencies[@]} -eq 0 ]
 then
-	printf "Removing unnecessary packages:\n"
 	for package in "${installed_dependencies[@]}"
 	do
 		printf " [-] $package has been installed during dependency check, removing... "
 		apt autoremove -y --purge "$package" > /dev/null 2>&1; print_status
 	done
-fi
-
-printf "Removing unnecessary files and directories:\n"
-
-if [[ -f /usr/src/csf.tgz ]]
-then
-	printf " Removing '/usr/src/csf.tgz' file... "
-	rm /usr/src/csf.tgz > /dev/null 2>&1; print_status
-	file_folder_removed=true
-fi
-
-if [[ -e /usr/src/csf ]]
-then
-	printf " Removing '/usr/src/csf' directory... "
-	rm -r /usr/src/csf > /dev/null 2>&1; print_status
-	file_folder_removed=true
-fi
-
-if [ $file_folder_removed = false ]
-then
+else
 	printf " [Nothing to remove]\n"
 fi
 

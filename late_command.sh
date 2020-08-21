@@ -115,11 +115,6 @@ exec 4<&1 5<&2 1>&2>&>(tee -a >(sed -r 's/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]
 
 # Step 2: Checking and installing dependencies.
 
-printf "Running apt update... "
-apt update > /dev/null 2>&1; print_status
-
-printf "\n"
-
 printf "Checking for dependencies:\n"
 for package in "${dependencies[@]}"
 do

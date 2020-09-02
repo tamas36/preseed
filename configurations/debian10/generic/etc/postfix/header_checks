@@ -1,0 +1,2 @@
+# Remove sensitive userid information from "Received:" header line.
+/^Received: by (.*) .*Postfix, from userid [0-9]+\)\s*id ([A-F[:digit:]]+)(.*) (.*)/ REPLACE Received: by $1 (Postfix) id $2$3 $4
